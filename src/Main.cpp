@@ -77,7 +77,7 @@ static volatile float humidity = -9999;
 static volatile float temperature = -9999;
 
 // Input/Output RPi GPIO Pins
-static volatile int dhtPin = 25;
+static volatile int dhtPin = -1;
 
 // lcd 1602
 static unsigned int lcdAddress = 0x27;
@@ -931,7 +931,7 @@ bool setup()
 
     threadCreate(timerControl, "timer");
 
-    threadCreate(readDHT22Loop, "read dht sensor");
+//    threadCreate(readDHT22Loop, "read dht sensor");
 
     threadCreate(crossingSignal, "crossing signal");
 
@@ -991,33 +991,26 @@ void updateClockMessage(const char *msg)
         clockMessage[16] = 0;
     }
 
-    if (temperature > -999)
+    lcdPosition(lcdHandle, 0, 1);
+    char tmpstr2[128];
+
+    if (strlen(clockMessage) > 0)
     {
-        lcdPosition(lcdHandle, 0, 1);
-        char humi[32];
-        char temp[32];
-        char tmpstr1[64];
-        char tmpstr2[128];
-
-        if (strlen(clockMessage) > 0)
+        sprintf(tmpstr2, "%32s", "");
+        int p1 = (16 - strlen(clockMessage)) / 2;
+        if (p1 < 0)
         {
-            sprintf(tmpstr2, "%32s", "");
-            int p1 = (16 - strlen(clockMessage)) / 2;
-            if (p1 < 0)
-            {
-                p1 = 0;
-            }
-
-            sprintf(&tmpstr2[p1], "%s", clockMessage);
-
-            logger.info("lcdMessage: '%s'", tmpstr2);
-            lcdPrintf(lcdHandle, "%-16.16s", tmpstr2);
+            p1 = 0;
         }
-        else
-        {
-            lcdPrintf(lcdHandle, "%16s", "");
-        }
+
+        sprintf(&tmpstr2[p1], "%s", clockMessage);
+
+        logger.info("lcdMessage: '%s'", tmpstr2);
+        lcdPrintf(lcdHandle, "%-16.16s", tmpstr2);
+    } else {
+        lcdPrintf(lcdHandle, "%16s", "");
     }
+
 
     piUnlock(1);
 }
@@ -1167,6 +1160,28 @@ void updateClock()
         {
             lcdPrintf(lcdHandle, "%-8.8s%8.8s", humi, temp);
         }
+    } else {
+        lcdPosition(lcdHandle, 0, 1);
+        char tmpstr1[64];
+        char tmpstr2[128];
+
+        if (strlen(msg) > 0)
+        {
+            sprintf(tmpstr2, "%16s", "");
+            sprintf(&tmpstr2[(16 - strlen(msg)) / 2], "%s", msg);
+            sprintf(tmpstr1, "%-16.16s", tmpstr2);
+            sprintf(tmpstr2, "%s%s", tmpstr1, tmpstr1);
+
+            tmpstr2[marqueePosition + 16] = 0;
+
+            lcdPuts(lcdHandle, &tmpstr2[marqueePosition++]);
+
+            if (marqueePosition > strlen(tmpstr1) - 1)
+            {
+                marqueePosition = 0;
+            }
+        }
+
     }
     piUnlock(1);
 }
@@ -1200,7 +1215,7 @@ int main(int argc, char **argv)
     threadCreate(tcpInterface, "tcp interface");
 
     PCA9635_TYPE systemReadyPinType = pca9635_getTypeFromENV("SYSTEM_READY_LED");
-    pca9635SetBrightness(pca9635Handle, systemReadyPinType, WHITE, 10);
+    pca9635SetBrightness(pca9635Handle, systemReadyPinType, WHITE, 5);
 
     logger.info("system ready");
 
